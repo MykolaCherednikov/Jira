@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ChatServer</name>
+    </assembly>
+    <members>
+        <member name="M:ChatServer.Controllers.UsersController.Login(ChatServer.DTO.UserLoginDTO)">
+            <summary>
+            Get data from login.
+            </summary>
+        </member>
+    </members>
+</doc>
