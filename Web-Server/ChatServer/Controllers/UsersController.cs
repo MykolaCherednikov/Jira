@@ -92,5 +92,18 @@ namespace ChatServer.Controllers
             return await Login(new UserLoginDTO() { email = tempuser.email, password = tempuser.password});
         }
 
+        [HttpGet("GetUsersByChatId")]
+        public async Task<ActionResult<IEnumerable<User>>> GetUsersByChatId(int id_chat)
+        {
+            var users = await _context.UserToChat.Where(x => x.rk_id_chat == id_chat).Select(x => x.RkIdUserNavigation).ToListAsync();
+
+            if (users.Count == 0)
+            {
+                string message = "Not Found";
+                return StatusCode(400, message);
+            }
+
+            return users;
+        }
     }
 }
