@@ -25,30 +25,6 @@ namespace ChatServer.Controllers
             _context = context;
         }
 
-        [HttpGet("GetByID")]
-        public async Task<ActionResult<User>> GetUserByID(int id_user)
-        {
-            var user = await _context.User.FirstOrDefaultAsync(x => x.id_user == id_user);
-            if (user == null)
-            {
-                string message = "Not Found";
-                return StatusCode(400, message);
-            }
-
-            return user;
-        }
-
-        [HttpGet("GetByEmail")]
-        public async Task<ActionResult<User>> GetUserByEmail(string email)
-        {
-            var user = await _context.User.FirstOrDefaultAsync(x => x.email == email);
-            if (user == null)
-            {
-                string message = "Not Found";
-                return StatusCode(400, message);
-            }
-            return user;
-        }
 
         /// <summary>
         /// Get data from login.
@@ -92,18 +68,6 @@ namespace ChatServer.Controllers
             return await Login(new UserLoginDTO() { email = tempuser.email, password = tempuser.password});
         }
 
-        [HttpGet("GetUsersByChatId")]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsersByChatId(int id_chat)
-        {
-            var users = await _context.UserToChat.Where(x => x.rk_id_chat == id_chat).Select(x => x.RkIdUserNavigation).ToListAsync();
 
-            if (users.Count == 0)
-            {
-                string message = "Not Found";
-                return StatusCode(400, message);
-            }
-
-            return users;
-        }
     }
 }
