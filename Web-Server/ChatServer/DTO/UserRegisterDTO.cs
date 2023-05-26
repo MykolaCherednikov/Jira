@@ -11,5 +11,6 @@ namespace ChatServer.DTO
         public string email { get; set; } = null!;
         [Required]
         public string password { get; set; } = null!;
+
     }
 }

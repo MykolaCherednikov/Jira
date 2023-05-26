@@ -7,6 +7,7 @@ C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Azure.Core.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Azure.Identity.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Humanizer.dll
+C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Microsoft.AspNetCore.JsonPatch.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\PubTmp\Out\Microsoft.AspNetCore.OpenApi.dll

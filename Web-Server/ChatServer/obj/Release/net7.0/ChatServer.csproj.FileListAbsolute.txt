@@ -279,3 +279,4 @@ C:\Users\Lenovo\source\repos\ChatServer\ChatServer\obj\Release\net7.0\ChatServer
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\bin\Release\net7.0\Microsoft.AspNetCore.JsonPatch.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\bin\Release\net7.0\Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll
 C:\Users\Lenovo\source\repos\ChatServer\ChatServer\bin\Release\net7.0\Newtonsoft.Json.Bson.dll
+C:\Users\Lenovo\source\repos\ChatServer\ChatServer\bin\Release\net7.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll

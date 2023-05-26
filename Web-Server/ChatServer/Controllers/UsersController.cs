@@ -1,83 +1,115 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using ChatServer.Data;
-using ChatServer.Models;
+﻿using ChatServer.Data;
 using ChatServer.DTO;
-using System.Text.Json.Serialization;
+using ChatServer.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace ChatServer.Controllers
 {
-    [Authorize]
+
     [ApiController]
     [Route("[controller]")]
     public class UsersController : ControllerBase
     {
         private readonly ChatServerContext _context;
+        private readonly JWTSettings _options;
 
-        public UsersController(ChatServerContext context)
+        public UsersController(IOptions<JWTSettings> options, ChatServerContext context)
         {
+            _options = options.Value;
             _context = context;
         }
 
-        [HttpGet("GetByID")]
-        public async Task<ActionResult<User>> GetUserByID(int id_user)
-        {
-            var user = await _context.User.FirstOrDefaultAsync(x => x.id_user == id_user);
-            if (user == null)
-            {
-                string message = "Not Found";
-                return StatusCode(400, message);
-            }
-
-            return user;
-        }
-
-        [HttpGet("GetByEmail")]
-        public async Task<ActionResult<User>> GetUserByEmail(string email)
-        {
-            var user = await _context.User.FirstOrDefaultAsync(x => x.email == email);
-            if (user == null)
-            {
-                string message = "Not Found";
-                return StatusCode(400, message);
-            }
-            return user;
-        }
 
         /// <summary>
-        /// Get data from login.
+        /// Return token from login.
         /// </summary>
+        /// <response code="400">
+        /// Incorrect login:
+        /// 
+        ///     {
+        ///         "code": 3003,
+        ///         "message": "Invalid login"
+        ///     }
+        /// 
+        /// Incorrect password:
+        /// 
+        ///     {
+        ///         "code": 3003,
+        ///         "message": "Invalid password"
+        ///     }
+        /// </response>
         [HttpPost("Login")]
-        public async Task<ActionResult<User>> Login(UserLoginDTO user_request)
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserReturnWithTokenDTO))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorDTO))]
+        public async Task<IActionResult> Login(LoginInputDTO user_request)
         {
             var user = await _context.User.FirstOrDefaultAsync(x => x.email == user_request.email);
-            if(user == null)
+            if (user == null)
             {
-                string message = "Incorrect email";
-                return StatusCode(400, message);
+                return BadRequest(new ErrorDTO(3003, "Invalid login"));
             }
-            if(user.password != user_request.password)
+            if (user.password != user_request.password)
             {
-                string message = "Incorrect password";
-                return StatusCode(400, message);
+
+                return BadRequest(new ErrorDTO(3003, "Invalid password"));
             }
-            return user;
+
+            List<Claim> claims = new()
+            {
+                new Claim(ClaimTypes.Role, "User")
+            };
+
+            claims.Add(new Claim("Email", user.email));
+            claims.Add(new Claim("Id", user.id_user.ToString()));
+
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
+
+            var jwt = new JwtSecurityToken(
+                issuer: _options.Issuer,
+                audience: _options.Audience,
+                claims: claims,
+                expires: DateTime.UtcNow.Add(TimeSpan.FromMinutes(10)),
+                notBefore: DateTime.UtcNow,
+                signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
+                );
+
+            UserReturnWithTokenDTO userReturnDTO = new UserReturnWithTokenDTO();
+            userReturnDTO.token = new JwtSecurityTokenHandler().WriteToken(jwt);
+            userReturnDTO.id_user = user.id_user;
+            userReturnDTO.nickname = user.nickname;
+            userReturnDTO.email = user.email;
+
+            return Ok(userReturnDTO);
         }
 
+
+        /// <summary>
+        /// Create user and return token.
+        /// </summary>
+        /// <response code="400">
+        /// User already exists:
+        /// 
+        ///     {
+        ///         "code": 3033,
+        ///         "message": "Unable to register user. User already exists."
+        ///     }
+        /// </response>
         [HttpPost("Register")]
-        public async Task<ActionResult<User>> Register(UserRegisterDTO user_request)
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorDTO))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserReturnWithTokenDTO))]
+        public async Task<IActionResult> Register(UserRegisterDTO user_request)
         {
             var user = await _context.User.FirstOrDefaultAsync(x => x.email == user_request.email);
             if (user != null)
             {
-                string message = "User with this login alredy exsists";
-                return StatusCode(400, message);
+                return BadRequest(new ErrorDTO(3033, "Unable to register user. User already exists."));
             }
 
             var tempuser = new User
@@ -86,24 +118,132 @@ namespace ChatServer.Controllers
                 email = user_request.email,
                 password = user_request.password
             };
-          
+
             _context.User.Add(tempuser);
             await _context.SaveChangesAsync();
-            return await Login(new UserLoginDTO() { email = tempuser.email, password = tempuser.password});
+            return await Login(new LoginInputDTO() { email = tempuser.email, password = tempuser.password });
         }
 
-        [HttpGet("GetUsersByChatId")]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsersByChatId(int id_chat)
+        /// <summary>
+        /// Edit user profile
+        /// </summary>
+        /// <response code="400">
+        /// </response>
+        [HttpPost("EditUserProfile")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorDTO))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserReturnDTO))]
+        public async Task<IActionResult> EditUserProfile(UserEditProfileDTO user_edit)
         {
-            var users = await _context.UserToChat.Where(x => x.rk_id_chat == id_chat).Select(x => x.RkIdUserNavigation).ToListAsync();
+            int id_user = Convert.ToInt32(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            var user = await _context.User.FirstOrDefaultAsync(x => x.id_user == id_user)!;
+            user.nickname = user_edit.nickname;
+            user = _context.User.Update(user).Entity;
+            await _context.SaveChangesAsync();
 
-            if (users.Count == 0)
+            UserReturnDTO userReturnDTO = new UserReturnDTO();
+            userReturnDTO.id_user = user.id_user;
+            userReturnDTO.nickname = user.nickname;
+            userReturnDTO.email = user.email;
+
+
+            return Ok(userReturnDTO);
+        }
+
+        /// <summary>
+        /// Edit user data
+        /// </summary>
+        /// <response code="400">
+        /// </response>
+        [HttpPost("EditUserData")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorDTO))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UserReturnDTO))]
+        public async Task<IActionResult> EditUserData(UserEditDTO user_edit)
+        {
+            int id_user = Convert.ToInt32(User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value);
+            var user = await _context.User.FirstOrDefaultAsync(x => x.id_user == id_user);
+            if(user.password != user_edit.password)
             {
-                string message = "Not Found";
-                return StatusCode(400, message);
+                return BadRequest();
             }
 
-            return users;
+            if(user_edit.new_password != null) { 
+                user.password = user_edit.new_password;
+            }
+
+            if (user_edit.email != null)
+            {
+                user.email = user_edit.email;
+            }
+
+            user = _context.User.Update(user).Entity;
+            await _context.SaveChangesAsync();
+
+            UserReturnDTO userReturnDTO = new UserReturnDTO();
+            userReturnDTO.id_user = user.id_user;
+            userReturnDTO.nickname = user.nickname;
+            userReturnDTO.email = user.email;
+
+            return Ok(userReturnDTO);
+        }
+
+        /// <summary>
+        /// Return token from login.
+        /// </summary>
+        /// <response code="400">
+        /// Incorrect login:
+        /// 
+        ///     {
+        ///         "code": 3003,
+        ///         "message": "Invalid login"
+        ///     }
+        /// 
+        /// Incorrect password:
+        /// 
+        ///     {
+        ///         "code": 3003,
+        ///         "message": "Invalid password"
+        ///     }
+        /// </response>
+        [Authorize]
+        [HttpGet("FindUser")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<UserReturnDTO>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ErrorDTO))]
+        public async Task<IActionResult> FindUser(string user_data_to_find)
+        {
+            List<User> users_by_nickname = await _context.User.Where(x => x.nickname.Contains(user_data_to_find)).ToListAsync();
+            List<User> users_by_email = await _context.User.Where(x => x.email.Contains(user_data_to_find)).ToListAsync();
+            List<User> users = users_by_email.Union(users_by_nickname).ToList();
+            if (users.Count() == 0)
+            {
+                return BadRequest();
+            }
+
+            List<UserReturnDTO> result = new List<UserReturnDTO>();
+
+            foreach (var user in users)
+            {
+                UserReturnDTO userReturn = new();
+                userReturn.id_user = user.id_user;
+                userReturn.nickname = user.nickname;
+                userReturn.email = user.email;
+                result.Add(userReturn);
+            }
+
+            return Ok(result);
+        }
+
+        [HttpGet("GetAllUsers")]
+        public async Task<List<User>> GetAllMessages()
+        {
+            return await _context.User.ToListAsync();
+        }
+
+        [HttpGet("GetUserById")]
+        public async Task<User> GetAllChats(int id)
+        {
+            return await _context.User.FirstOrDefaultAsync(c => c.id_user == id);
         }
     }
 }

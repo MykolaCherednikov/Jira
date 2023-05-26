@@ -44,7 +44,7 @@ public partial class ChatServerContext : DbContext
                 .IsUnicode(false)
                 .HasColumnName("link");
             entity.Property(e => e.name_chat)
-                .HasMaxLength(30)
+                .HasMaxLength(60)
                 .IsUnicode(false)
                 .HasColumnName("name_chat");
             entity.Property(e => e.rk_type_chat).HasColumnName("rk_type_chat");

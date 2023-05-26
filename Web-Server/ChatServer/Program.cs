@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
 using System.Text;
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Rewrite;
 
 namespace ChatServer
 {
@@ -22,6 +24,8 @@ namespace ChatServer
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
             });
 
+            builder.Services.AddCors();
+
             builder.Services.AddControllersWithViews().AddNewtonsoftJson(options =>
                 options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
             );
@@ -35,7 +39,7 @@ namespace ChatServer
 
             builder.Services.Configure<JWTSettings>(builder.Configuration.GetSection("JWTSettings"));
 
-            var secretKey = builder.Configuration.GetSection("JWTSettings:SecretKey").Value;
+            string? secretKey = builder.Configuration.GetSection("JWTSettings:SecretKey").Value;
             var issuer = builder.Configuration.GetSection("JWTSettings:Issuer").Value;
             var audience = builder.Configuration.GetSection("JWTSettings:Audience").Value;
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -62,11 +66,14 @@ namespace ChatServer
 
             var app = builder.Build();
 
+            app.UseCors(options => { options.WithOrigins("http://localhost:5173", "http://109.87.235.191:5052").AllowAnyMethod().AllowAnyHeader(); });
+
             // Configure the HTTP request pipeline.
 
             var webSocketOptions = new WebSocketOptions
             {
-                KeepAliveInterval = TimeSpan.FromMinutes(2)
+                KeepAliveInterval = TimeSpan.FromSeconds(10),
+                AllowedOrigins = { "*" }
             };
 
             app.UseWebSockets(webSocketOptions);
@@ -80,6 +87,11 @@ namespace ChatServer
             app.UseHttpsRedirection();
 
             
+
+            var option = new RewriteOptions();
+            option.AddRedirect("^$", "swagger");
+            app.UseRewriter(option);
+
             app.UseAuthentication();
             app.UseAuthorization();
 
